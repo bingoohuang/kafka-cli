@@ -10,6 +10,8 @@ cli tools for kafka in golang
 
 ## Cluster Manager for Apache Kafka
 
+1. TO CHECK [docker部署kafka集群](https://www.cnblogs.com/zisefeizhu/p/14151317.html)
+1. TO CHECK [Docker Compose安装kafka和springboot整合kafka](https://www.cnblogs.com/Lambquan/p/13649715.html)
 1. [obsidiandynamics/kafdrop](https://github.com/obsidiandynamics/kafdrop)
 1. [yahoo/CMAK Kafka Manager](https://github.com/yahoo/CMAK)
 1. [didi/Logi-KafkaManager](https://github.com/didi/Logi-KafkaManager)
