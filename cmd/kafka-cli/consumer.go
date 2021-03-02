@@ -34,7 +34,7 @@ func initConsumerCmd(root *cobra.Command) {
 	f := cmd.Flags()
 	c.KakfaConnect.InitFlags(f)
 
-	f.StringVar(&c.Group, "group", "", "Kafka consumer group definition")
+	f.StringVar(&c.Group, "group", "kafka-cli.group", "Kafka consumer group definition")
 	f.StringVar(&c.Topics, "topics", "kafka-cli.topic", "Kafka topics to be consumed, as a comma separated list")
 	f.StringVar(&c.Assignor, "assignor", "range", "Consumer group partition assignment strategy (range, rr/roundrobin, sticky)")
 	f.BoolVar(&c.Oldest, "oldest", true, "Kafka consumer consume initial offset from oldest")
@@ -167,9 +167,9 @@ func (r *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 			}
 			headers += string(h.Key) + ": " + string(h.Value)
 		}
-		log.Printf("Msg claimed at %s/%s topic: %s, offset:%d, partition:%d,%s value: %s",
+		log.Printf("Msg claimed at %s/%s topic: %s, offset:%d, partition:%d,%s K:%s, V: %s",
 			m.Timestamp.Format(layout), m.BlockTimestamp.Format(layout),
-			m.Topic, m.Offset, m.Partition, headers, m.Value)
+			m.Topic, m.Offset, m.Partition, headers, m.Key, m.Value)
 		session.MarkMessage(m, "")
 	}
 

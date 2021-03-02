@@ -21,7 +21,7 @@ type ConsoleConsumerCmd struct {
 
 	Topic      string `json:",omitempty"`
 	Partitions string `json:",omitempty"`
-	Offset     string `json:",omitempty"`
+	Oldest     bool   `json:",omitempty"`
 
 	BufferSize int `json:",omitempty"`
 }
@@ -57,7 +57,7 @@ kafka-cli console-consumer -help`,
 	c.KakfaConnect.InitFlags(f)
 	f.StringVar(&c.Topic, "topic", "kafka-cli.topic", "REQUIRED: the topic to consume")
 	f.StringVar(&c.Partitions, "partitions", "all", "The partitions to consume, can be 'all' or comma-separated numbers")
-	f.StringVar(&c.Offset, "offset", "newest", "The offset to start with. Can be `oldest`, `newest`")
+	f.BoolVar(&c.Oldest, "oldest", true, "Kafka consumer consume initial offset from oldest")
 	f.IntVar(&c.BufferSize, "buffer-size", 256, "The buffer size of the message channel.")
 }
 
@@ -77,14 +77,9 @@ func (r *ConsoleConsumerCmd) run() {
 		sarama.Logger = log.Default()
 	}
 
-	var initialOffset int64
-	switch r.Offset {
-	case "oldest":
+	var initialOffset = sarama.OffsetNewest
+	if r.Oldest {
 		initialOffset = sarama.OffsetOldest
-	case "newest":
-		initialOffset = sarama.OffsetNewest
-	default:
-		printUsageErrorAndExit("-offset should be `oldest` or `newest`")
 	}
 
 	cnf := sarama.NewConfig()
@@ -172,15 +167,15 @@ func (r *ConsoleConsumerCmd) getPartitions(c sarama.Consumer) ([]int32, error) {
 }
 
 func printErrorAndExit(code int, format string, values ...interface{}) {
-	fmt.Fprintf(os.Stderr, "ERROR: %s\n", fmt.Sprintf(format, values...))
-	fmt.Fprintln(os.Stderr)
+	_, _ = fmt.Fprintf(os.Stderr, "ERROR: %s\n", fmt.Sprintf(format, values...))
+	_, _ = fmt.Fprintln(os.Stderr)
 	os.Exit(code)
 }
 
 func printUsageErrorAndExit(format string, values ...interface{}) {
-	fmt.Fprintf(os.Stderr, "ERROR: %s\n", fmt.Sprintf(format, values...))
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "Available command line options:")
+	_, _ = fmt.Fprintf(os.Stderr, "ERROR: %s\n", fmt.Sprintf(format, values...))
+	_, _ = fmt.Fprintln(os.Stderr)
+	_, _ = fmt.Fprintln(os.Stderr, "Available command line options:")
 	flag.PrintDefaults()
 	os.Exit(64)
 }
