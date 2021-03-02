@@ -35,7 +35,7 @@ func initConsumerCmd(root *cobra.Command) {
 	c.KakfaConnect.InitFlags(f)
 
 	f.StringVar(&c.Group, "group", "", "Kafka consumer group definition")
-	f.StringVar(&c.Topics, "topics", "", "Kafka topics to be consumed, as a comma separated list")
+	f.StringVar(&c.Topics, "topics", "kafka-cli.topic", "Kafka topics to be consumed, as a comma separated list")
 	f.StringVar(&c.Assignor, "assignor", "range", "Consumer group partition assignment strategy (range, rr/roundrobin, sticky)")
 	f.BoolVar(&c.Oldest, "oldest", true, "Kafka consumer consume initial offset from oldest")
 }
@@ -59,17 +59,13 @@ func (r *ConsumerCmd) run() {
 		sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
 	}
 
-	version, err := sarama.ParseKafkaVersion(r.Version)
-	if err != nil {
-		log.Panicf("Error parsing Kafka version: %v", err)
-	}
-
 	/**
 	 * Construct a new Sarama configuration.
 	 * The Kafka cluster version has to be defined before the consumer/producer is initialized.
 	 */
 	cnf := sarama.NewConfig()
-	cnf.Version = version
+	r.SetupVersion(cnf)
+	r.SetupTlSConfig(cnf)
 
 	switch r.Assignor {
 	case "sticky":
@@ -85,8 +81,6 @@ func (r *ConsumerCmd) run() {
 	if r.Oldest {
 		cnf.Consumer.Offsets.Initial = sarama.OffsetOldest
 	}
-
-	r.SetupTlSConfig(cnf)
 
 	/**
 	 * Setup a new Sarama consumer group
@@ -144,27 +138,39 @@ type Consumer struct {
 }
 
 // Setup is run at the beginning of a new session, before ConsumeClaim
-func (consumer *Consumer) Setup(sarama.ConsumerGroupSession) error {
-	// Mark the consumer as ready
-	close(consumer.ready)
+func (r *Consumer) Setup(sarama.ConsumerGroupSession) error {
+	// Mark the r as ready
+	close(r.ready)
 	return nil
 }
 
 // Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited
-func (consumer *Consumer) Cleanup(sarama.ConsumerGroupSession) error {
+func (r *Consumer) Cleanup(sarama.ConsumerGroupSession) error {
 	return nil
 }
 
-// ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
-func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+const layout = "2006-01-02 15:03:04.000"
 
+// ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
+func (r *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	// NOTE:
 	// Do not move the code below to a goroutine.
 	// The `ConsumeClaim` itself is called within a goroutine, see:
 	// https://github.com/Shopify/sarama/blob/master/consumer_group.go#L27-L29
-	for message := range claim.Messages() {
-		log.Printf("Message claimed: value = %s, timestamp = %v, topic = %s", string(message.Value), message.Timestamp, message.Topic)
-		session.MarkMessage(message, "")
+	for m := range claim.Messages() {
+		headers := ""
+		for _, h := range m.Headers {
+			if headers == "" {
+				headers = " Headers "
+			} else {
+				headers += ", "
+			}
+			headers += string(h.Key) + ": " + string(h.Value)
+		}
+		log.Printf("Msg claimed at %s/%s topic: %s, offset:%d, partition:%d,%s value: %s",
+			m.Timestamp.Format(layout), m.BlockTimestamp.Format(layout),
+			m.Topic, m.Offset, m.Partition, headers, m.Value)
+		session.MarkMessage(m, "")
 	}
 
 	return nil

@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Shopify/sarama"
+	"github.com/gohxs/readline"
 	"github.com/rcrowley/go-metrics"
 	"github.com/spf13/cobra"
 	"io/ioutil"
 	"log"
 	"os"
 	"strings"
+	"time"
 )
 
 type ConsoleProducerCmd struct {
@@ -58,18 +60,13 @@ kafka-cli console-producer -help`,
 	}
 	root.AddCommand(cmd)
 
-	kafkaPeers := os.Getenv("KAFKA_PEERS")
-	if kafkaPeers == "" {
-		kafkaPeers = "127.0.0.1:9092"
-	}
-
 	f := cmd.Flags()
 	c.KakfaConnect.InitFlags(f)
 	f.StringVar(&c.Headers, "headers", "", "The headers of the message to produce. Example: -headers=foo:bar,bar:foo")
 	f.StringVar(&c.Topic, "topic", "kafka-cli.topic", "REQUIRED: the topic to produce to")
-	f.StringVar(&c.Key, "key", "", "The key of the message to produce. Can be empty.")
-	f.StringVar(&c.Value, "value", "", "REQUIRED: the value of the message to produce. You can also provide the value on stdin.")
-	f.StringVar(&c.Partitioner, "partitioner", "", "The partitioning scheme to use. Can be `hash`, `manual`, or `random`")
+	f.StringVar(&c.Key, "key", "", "Message key to produce. Can be empty.")
+	f.StringVar(&c.Value, "value", "", "Message value to produce. You can also provide the value on stdin or type in later in prompt.")
+	f.StringVar(&c.Partitioner, "partitioner", "", "The partitioning scheme to use. hash/manual/random")
 	f.IntVar(&c.Partition, "partition", -1, "The partition to produce to.")
 	f.BoolVar(&c.ShowMetrics, "metrics", false, "Output metrics on successful publish to stderr")
 	f.BoolVar(&c.Silent, "silent", false, "Turn off printing the message's topic, partition, and offset to stdout")
@@ -92,16 +89,10 @@ func (r *ConsoleProducerCmd) run() {
 	}
 
 	cnf := sarama.NewConfig()
-
-	version, err := sarama.ParseKafkaVersion(r.Version)
-	if err != nil {
-		log.Panicf("Error parsing Kafka version: %v", err)
-	}
-
-	cnf.Version = version
 	cnf.Producer.RequiredAcks = sarama.WaitForAll
 	cnf.Producer.Return.Successes = true
 
+	r.SetupVersion(cnf)
 	r.SetupTlSConfig(cnf)
 
 	switch r.Partitioner {
@@ -129,6 +120,8 @@ func (r *ConsoleProducerCmd) run() {
 		msg.Key = sarama.StringEncoder(r.Key)
 	}
 
+	var readlineUI bool
+
 	if r.Value != "" {
 		msg.Value = sarama.StringEncoder(r.Value)
 	} else if stdinAvailable() {
@@ -139,39 +132,68 @@ func (r *ConsoleProducerCmd) run() {
 
 		msg.Value = sarama.ByteEncoder(bytes.TrimSpace(data))
 	} else {
-		printUsageErrorAndExit("-value is required, or you have to provide the value on stdin")
+		readlineUI = true
 	}
 
-	if r.Headers != "" {
-		var hdrs []sarama.RecordHeader
-		arrHdrs := strings.Split(r.Headers, ",")
-		for _, h := range arrHdrs {
-			if header := strings.Split(h, ":"); len(header) != 2 {
-				printUsageErrorAndExit("-header should be key:value. Example: -headers=foo:bar,bar:foo")
-			} else {
-				hdrs = append(hdrs, sarama.RecordHeader{
-					Key:   []byte(header[0]),
-					Value: []byte(header[1]),
-				})
-			}
-		}
+	r.appendHeaders(msg)
 
-		if len(hdrs) != 0 {
-			msg.Headers = hdrs
-		}
-	}
-
-	producer, err := sarama.NewSyncProducer(strings.Split(r.Brokers, ","), cnf)
+	p, err := sarama.NewSyncProducer(strings.Split(r.Brokers, ","), cnf)
 	if err != nil {
-		printErrorAndExit(69, "Failed to open Kafka producer: %s", err)
+		printErrorAndExit(69, "Failed to open Kafka p: %s", err)
 	}
 	defer func() {
-		if err := producer.Close(); err != nil {
-			log.Println("Failed to close Kafka producer cleanly:", err)
+		if err := p.Close(); err != nil {
+			log.Println("Failed to close Kafka p cleanly:", err)
 		}
 	}()
 
-	partition, offset, err := producer.SendMessage(msg)
+	if !readlineUI {
+		r.send(p, msg, cnf)
+		return
+	}
+
+	rl, err := readline.NewEx(&readline.Config{
+		Prompt:                 "> ",
+		HistoryFile:            "/tmp/kafka-cli",
+		DisableAutoSaveHistory: true,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rl.Close()
+	var lastErrInterrupt time.Time
+
+	for {
+		l, err := rl.Readline()
+		if err == readline.ErrInterrupt {
+			if time.Since(lastErrInterrupt) < 3*time.Second {
+				os.Exit(0)
+			}
+
+			lastErrInterrupt = time.Now()
+			continue
+		}
+
+		if err != nil {
+			break
+		}
+
+		lastErrInterrupt = time.Time{}
+
+		l = strings.TrimSpace(l)
+		if len(l) == 0 {
+			continue
+		}
+		rl.SaveHistory(l)
+
+		msg.Value = sarama.StringEncoder(l)
+		r.send(p, msg, cnf)
+	}
+
+}
+
+func (r *ConsoleProducerCmd) send(p sarama.SyncProducer, msg *sarama.ProducerMessage, cnf *sarama.Config) {
+	partition, offset, err := p.SendMessage(msg)
 	if err != nil {
 		printErrorAndExit(69, "Failed to produce msg: %s", err)
 	} else if !r.Silent {
@@ -180,6 +202,26 @@ func (r *ConsoleProducerCmd) run() {
 	if r.ShowMetrics {
 		metrics.WriteOnce(cnf.MetricRegistry, os.Stderr)
 	}
+}
+
+func (r *ConsoleProducerCmd) appendHeaders(msg *sarama.ProducerMessage) {
+	if r.Headers == "" {
+		return
+	}
+
+	var hdrs []sarama.RecordHeader
+	for _, h := range strings.Split(r.Headers, ",") {
+		if header := strings.Split(h, ":"); len(header) != 2 {
+			printUsageErrorAndExit("-header should be key:value. Example: -headers=foo:bar,bar:foo")
+		} else {
+			hdrs = append(hdrs, sarama.RecordHeader{
+				Key:   []byte(header[0]),
+				Value: []byte(header[1]),
+			})
+		}
+	}
+
+	msg.Headers = hdrs
 }
 
 func stdinAvailable() bool {

@@ -27,6 +27,7 @@ func main() {
 	initConsumerCmd(rootCmd)
 	initConsoleConsumerCmd(rootCmd)
 	initConsoleProducerCmd(rootCmd)
+	initAdminCmd(rootCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Printf("E! error: %v", err)
@@ -51,22 +52,33 @@ func (r *KakfaConnect) InitFlags(f *pflag.FlagSet) {
 	}
 
 	f.StringVar(&r.Brokers, "brokers", kafkaPeers, "The comma separated list of brokers in the Kafka cluster")
-	f.StringVar(&r.Version, "version", sarama.V0_10_0_0.String(), "Kafka cluster version")
+	f.StringVar(&r.Version, "version", sarama.V0_10_2_1.String(), "Kafka cluster version")
 	f.BoolVar(&r.Verbose, "verbose", false, "Whether to turn on sarama logging")
 	f.BoolVar(&r.TlsSkipVerify, "tls-skip", false, "Whether skip TLS server cert verification")
 	f.StringVar(&r.TLSCertFile, "tls-cert", "", "Cert for client authentication (use with -tls-key)")
 	f.StringVar(&r.TlsKeyFile, "tls-key", "", "Key for client authentication (use with -tls-cert)")
 }
 
-func (r *KakfaConnect) SetupTlSConfig(config *sarama.Config) {
-	if r.TLSCertFile != "" && r.TlsKeyFile != "" {
-		tlsConfig, err := tls.NewConfig(r.TLSCertFile, r.TlsKeyFile)
-		if err != nil {
-			printErrorAndExit(69, "Failed to create TLS config: %s", err)
-		}
-
-		config.Net.TLS.Enable = true
-		config.Net.TLS.Config = tlsConfig
-		config.Net.TLS.Config.InsecureSkipVerify = r.TlsSkipVerify
+func (r *KakfaConnect) SetupVersion(config *sarama.Config) {
+	version, err := sarama.ParseKafkaVersion(r.Version)
+	if err != nil {
+		log.Panicf("Error parsing Kafka version: %v", err)
 	}
+
+	config.Version = version
+}
+
+func (r *KakfaConnect) SetupTlSConfig(config *sarama.Config) {
+	if r.TLSCertFile == "" || r.TlsKeyFile == "" {
+		return
+	}
+
+	tlsConfig, err := tls.NewConfig(r.TLSCertFile, r.TlsKeyFile)
+	if err != nil {
+		printErrorAndExit(69, "Failed to create TLS config: %s", err)
+	}
+
+	config.Net.TLS.Enable = true
+	config.Net.TLS.Config = tlsConfig
+	config.Net.TLS.Config.InsecureSkipVerify = r.TlsSkipVerify
 }

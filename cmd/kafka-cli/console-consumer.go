@@ -53,11 +53,6 @@ kafka-cli console-consumer -help`,
 	}
 	root.AddCommand(cmd)
 
-	kafkaPeers := os.Getenv("KAFKA_PEERS")
-	if kafkaPeers == "" {
-		kafkaPeers = "127.0.0.1:9092"
-	}
-
 	f := cmd.Flags()
 	c.KakfaConnect.InitFlags(f)
 	f.StringVar(&c.Topic, "topic", "kafka-cli.topic", "REQUIRED: the topic to consume")
@@ -93,14 +88,7 @@ func (r *ConsoleConsumerCmd) run() {
 	}
 
 	cnf := sarama.NewConfig()
-
-	version, err := sarama.ParseKafkaVersion(r.Version)
-	if err != nil {
-		log.Panicf("Error parsing Kafka version: %v", err)
-	}
-
-	cnf.Version = version
-
+	r.SetupVersion(cnf)
 	r.SetupTlSConfig(cnf)
 
 	c, err := sarama.NewConsumer(strings.Split(r.Brokers, ","), cnf)
