@@ -2,12 +2,13 @@ package main
 
 import "C"
 import (
+	"log"
+	"os"
+
 	"github.com/Shopify/sarama"
 	"github.com/Shopify/sarama/tools/tls"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"log"
-	"os"
 )
 
 func main() {
@@ -23,10 +24,10 @@ func main() {
 			log.Print("0.1")
 		},
 	})
-	initProducerCmd(rootCmd)
+	initHttpProducerCmd(rootCmd)
 	initConsumerCmd(rootCmd)
 	initConsoleConsumerCmd(rootCmd)
-	initConsoleProducerCmd(rootCmd)
+	initProducerCmd(rootCmd)
 	initAdminCmd(rootCmd)
 
 	if err := rootCmd.Execute(); err != nil {

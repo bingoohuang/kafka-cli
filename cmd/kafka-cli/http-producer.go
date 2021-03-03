@@ -6,31 +6,32 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/Shopify/sarama"
-	"github.com/spf13/cobra"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/Shopify/sarama"
+	"github.com/spf13/cobra"
 )
 
-type ProducerCmd struct {
+type HttpProducerCmd struct {
 	KakfaConnect
 
 	Addr   string `json:",omitempty"`
 	CaFile string `json:",omitempty"`
 }
 
-func initProducerCmd(root *cobra.Command) {
-	c := ProducerCmd{}
+func initHttpProducerCmd(root *cobra.Command) {
+	c := HttpProducerCmd{}
 	cmd := &cobra.Command{
-		Use:   "produce",
+		Use:   "http-producer",
 		Short: "Produce a message by http query",
-		Long: `Shows how to use the AsyncProducer and SyncProducer, and how to test them using mocks. 
-The server simply sends the data of the HTTP request's query string to Kafka, 
-and send a 200 result if that succeeds. For every request, it will send 
+		Long: `Shows how to use the AsyncProducer and SyncProducer, and how to test them using mocks.
+The server simply sends the data of the HTTP request's query string to Kafka,
+and send a 200 result if that succeeds. For every request, it will send
 an access log entry to Kafka as well in the background.`,
 		Run: func(cmd *cobra.Command, args []string) { c.run() },
 	}
@@ -42,7 +43,7 @@ an access log entry to Kafka as well in the background.`,
 	f.StringVar(&c.CaFile, "ca", "", "The optional certificate authority file for TLS client authentication")
 }
 
-func (r *ProducerCmd) run() {
+func (r *HttpProducerCmd) run() {
 	if r.Verbose {
 		sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
 	}
@@ -68,7 +69,7 @@ func (r *ProducerCmd) run() {
 	log.Fatal(server.Run(r.Addr))
 }
 
-func (r ProducerCmd) createTlsConfiguration() (t *tls.Config) {
+func (r HttpProducerCmd) createTlsConfiguration() (t *tls.Config) {
 	if r.TLSCertFile != "" && r.TlsKeyFile != "" && r.CaFile != "" {
 		cert, err := tls.LoadX509KeyPair(r.TLSCertFile, r.TlsKeyFile)
 		if err != nil {
@@ -202,7 +203,7 @@ func (s *Server) withAccessLog(next http.Handler) http.Handler {
 	})
 }
 
-func (r ProducerCmd) newDataCollector(brokerList []string) sarama.SyncProducer {
+func (r HttpProducerCmd) newDataCollector(brokerList []string) sarama.SyncProducer {
 	// For the data collector, we are looking for strong consistency semantics.
 	// Because we don't change the flush settings, sarama will try to produce messages
 	// as fast as possible to keep latency low.
@@ -235,7 +236,7 @@ func (r ProducerCmd) newDataCollector(brokerList []string) sarama.SyncProducer {
 	return producer
 }
 
-func (r ProducerCmd) newAccessLogProducer(brokerList []string) sarama.AsyncProducer {
+func (r HttpProducerCmd) newAccessLogProducer(brokerList []string) sarama.AsyncProducer {
 	// For the access log, we are looking for AP semantics, with high throughput.
 	// By creating batches of compressed messages, we reduce network I/O at a cost of more latency.
 	cnf := sarama.NewConfig()

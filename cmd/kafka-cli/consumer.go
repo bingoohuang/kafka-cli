@@ -2,14 +2,17 @@ package main
 
 import (
 	"context"
-	"github.com/Shopify/sarama"
-	"github.com/spf13/cobra"
+	"encoding/json"
 	"log"
 	"os"
 	"os/signal"
 	"strings"
 	"sync"
 	"syscall"
+
+	"github.com/Shopify/sarama"
+	"github.com/spf13/cobra"
+	"github.com/tidwall/pretty"
 )
 
 type ConsumerCmd struct {
@@ -41,19 +44,8 @@ func initConsumerCmd(root *cobra.Command) {
 }
 
 func (r *ConsumerCmd) run() {
-	if len(r.Brokers) == 0 {
-		panic("no Kafka bootstrap brokers defined, please set the -brokers flag")
-	}
-
-	if len(r.Topics) == 0 {
-		panic("no topics given to be consumed, please set the -topics flag")
-	}
-
-	if len(r.Group) == 0 {
-		panic("no Kafka consumer group defined, please set the -group flag")
-	}
-
-	log.Println("Starting a new Sarama consumer")
+	cmdJSON, _ := json.Marshal(r)
+	log.Printf("Starting consumer with config: %s", cmdJSON)
 
 	if r.Verbose {
 		sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
@@ -169,7 +161,7 @@ func (r *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 		}
 		log.Printf("Msg claimed at %s/%s topic: %s, offset:%d, partition:%d,%s K:%s, V: %s",
 			m.Timestamp.Format(layout), m.BlockTimestamp.Format(layout),
-			m.Topic, m.Offset, m.Partition, headers, m.Key, m.Value)
+			m.Topic, m.Offset, m.Partition, headers, m.Key, pretty.Color(m.Value, nil))
 		session.MarkMessage(m, "")
 	}
 
