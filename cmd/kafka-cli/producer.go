@@ -63,13 +63,13 @@ kafka-cli producer -help`,
 	root.AddCommand(cmd)
 
 	f := cmd.Flags()
-	c.KakfaConnect.InitFlags(f)
-	f.StringVar(&c.Headers, "headers", "", "The headers of the message to produce. Example: -headers=foo:bar,bar:foo")
+	e := c.KakfaConnect.InitFlags(f)
+	f.StringVar(&c.Headers, "headers", "", "Headers of the message to produce. Example: -headers=foo:bar,bar:foo")
 	f.StringVar(&c.Topic, "topic", "kafka-cli.topic", "Topic to produce to")
 	f.StringVar(&c.Key, "key", "", "Message key to produce. Can be empty.")
 	f.StringVar(&c.Value, "value", "", "Message value to produce. Or on stdin or type in later in prompt.")
-	f.StringVar(&c.Partitioner, "partitioner", "", "The partitioning scheme to use. hash/manual/random")
-	f.IntVar(&c.Partition, "partition", -1, "The partition to produce to.")
+	e.StringVar(&c.Partitioner, "partitioner", "", "Partitioning scheme to use. hash/manual/random")
+	f.IntVar(&c.Partition, "partition", -1, "Partition to produce to.")
 	f.BoolVar(&c.ShowMetrics, "metrics", false, "Output metrics on successful publish to stderr")
 	f.BoolVar(&c.Silent, "silent", false, "Turn off printing the message's topic, partition, and offset to stdout")
 }

@@ -4,6 +4,7 @@ import "C"
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/Shopify/sarama"
 	"github.com/Shopify/sarama/tools/tls"
@@ -46,18 +47,78 @@ type KakfaConnect struct {
 	TlsKeyFile    string `json:",omitempty"`
 }
 
-func (r *KakfaConnect) InitFlags(f *pflag.FlagSet) {
-	kafkaPeers := os.Getenv("KAFKA_PEERS")
-	if kafkaPeers == "" {
-		kafkaPeers = "127.0.0.1:9092"
-	}
+func (r *KakfaConnect) InitFlags(f *pflag.FlagSet) *EnvPflag {
+	e := NewEnvPflag("KAFKA", f)
 
-	f.StringVar(&r.Brokers, "brokers", kafkaPeers, "The comma separated list of brokers in the Kafka cluster")
-	f.StringVar(&r.Version, "version", sarama.V0_10_2_1.String(), "Kafka cluster version")
-	f.BoolVar(&r.Verbose, "verbose", false, "Whether to turn on sarama logging")
+	e.StringVarP(&r.Brokers, "brokers", "B", "127.0.0.1:9092",
+		"The comma separated list of brokers in the Kafka cluster, or env KAFKA_BROKERS, or 127.0.0.1:9092")
+	e.StringVarP(&r.Version, "version", "v", sarama.V0_10_2_1.String(), "Kafka cluster version")
+	f.BoolVarP(&r.Verbose, "verbose", "V", false, "Whether to turn on sarama logging")
 	f.BoolVar(&r.TlsSkipVerify, "tls-skip", false, "Whether skip TLS server cert verification")
 	f.StringVar(&r.TLSCertFile, "tls-cert", "", "Cert for client authentication (use with -tls-key)")
 	f.StringVar(&r.TlsKeyFile, "tls-key", "", "Key for client authentication (use with -tls-cert)")
+
+	return e
+}
+
+type EnvPflag struct {
+	Prefix  string
+	FlagSet *pflag.FlagSet
+	Env     map[string]string
+}
+
+func (f *EnvPflag) ReadEnv(name string) string {
+	envKey := strings.ToUpper(name)
+	if f.Prefix != "" {
+		envKey = f.Prefix + "_" + envKey
+	}
+
+	envKey = strings.Replace(envKey, "-", "_", -1)
+	return f.Env[envKey]
+}
+
+func NewEnvPflag(prefix string, f *pflag.FlagSet) *EnvPflag {
+	environ := os.Environ()
+	env := make(map[string]string)
+	for _, s := range environ {
+		if i := strings.Index(s, "="); i >= 1 {
+			env[s[0:i]] = s[i+1:]
+		}
+	}
+
+	if prefix != "" && strings.HasSuffix(prefix, "_") {
+		prefix = prefix[:len(prefix)-1]
+	}
+
+	return &EnvPflag{
+		Prefix:  prefix,
+		FlagSet: f,
+		Env:     env,
+	}
+}
+
+func (f *EnvPflag) StringVar(s *string, name, value, usage string) {
+	f.StringVarP(s, name, "", value, usage)
+}
+
+func (f *EnvPflag) StringVarP(s *string, name, shorthand, value, usage string) {
+	if v := f.ReadEnv(name); v != "" {
+		value = v
+	}
+
+	f.FlagSet.StringVarP(s, name, shorthand, value, usage)
+}
+
+func (f *EnvPflag) BoolVar(s *bool, name string, value bool, usage string) {
+	f.BoolVarP(s, name, "", value, usage)
+}
+
+func (f *EnvPflag) BoolVarP(s *bool, name, shorthand string, value bool, usage string) {
+	if v := f.ReadEnv(name); v != "" {
+		value = v == "true" || v == "yes" || v == "y" || v == "t" || v == "on"
+	}
+
+	f.FlagSet.BoolVarP(s, name, shorthand, value, usage)
 }
 
 func (r *KakfaConnect) SetupVersion(config *sarama.Config) {

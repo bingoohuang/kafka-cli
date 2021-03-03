@@ -35,12 +35,12 @@ func initConsumerCmd(root *cobra.Command) {
 	root.AddCommand(cmd)
 
 	f := cmd.Flags()
-	c.KakfaConnect.InitFlags(f)
+	e := c.KakfaConnect.InitFlags(f)
 
-	f.StringVar(&c.Group, "group", "kafka-cli.group", "Kafka consumer group definition")
-	f.StringVar(&c.Topics, "topics", "kafka-cli.topic", "Kafka topics to be consumed, as a comma separated list")
-	f.StringVar(&c.Assignor, "assignor", "range", "Consumer group partition assignment strategy (range, rr/roundrobin, sticky)")
-	f.BoolVar(&c.Oldest, "oldest", true, "Kafka consumer consume initial offset from oldest")
+	e.StringVar(&c.Group, "group", "", "Consumer group definition")
+	e.StringVar(&c.Topics, "topics", "kafka-cli.topic", "Topics to be consumed, as a comma separated list")
+	e.StringVar(&c.Assignor, "assignor", "range", "Consumer group partition assignment strategy (range, rr/roundrobin, sticky)")
+	e.BoolVar(&c.Oldest, "oldest", true, "Consume initial offset from oldest")
 }
 
 func (r *ConsumerCmd) run() {

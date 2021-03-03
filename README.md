@@ -10,28 +10,34 @@ cli tools for kafka in golang
 
 ## Cluster Manager for Apache Kafka
 
-1. TO CHECK [docker部署kafka集群](https://www.cnblogs.com/zisefeizhu/p/14151317.html)
-1. TO CHECK [Docker Compose安装kafka和springboot整合kafka](https://www.cnblogs.com/Lambquan/p/13649715.html)
+1. [docker部署kafka集群](https://www.cnblogs.com/zisefeizhu/p/14151317.html)
+1. [Docker Compose安装kafka和springboot整合kafka](https://www.cnblogs.com/Lambquan/p/13649715.html)
 1. [obsidiandynamics/kafdrop](https://github.com/obsidiandynamics/kafdrop)
 1. [yahoo/CMAK Kafka Manager](https://github.com/yahoo/CMAK)
 1. [didi/Logi-KafkaManager](https://github.com/didi/Logi-KafkaManager)
 1. [kafka-tools ConfluentInc slides](https://www.slideshare.net/ConfluentInc/show-me-kafka-tools-that-will-increase-my-productivity-stephane-maarek-datacumulus-kafka-summit-london-2019)
 
 ```sh
-$ kafka-cli console-consumer --brokers 192.168.217.14:9092
+$ kafka-cli consumer --brokers 192.168.217.14:9092
 2021/03/01 18:08:32 Config:{"Brokers":"192.168.217.14:9092","Version":"0.10.0.0","Topic":"kafka-cli.topic","Partitions":"all","Offset":"newest","BufferSize":256}
 Partition: 0 Offset: 13 Key:  Value: [bingoohuang]
 Partition: 0 Offset: 14 Key:  Value: [bingoohuangaaa]
 ```
 
 ```sh
-$ kafka-cli console-producer --brokers  192.168.217.14:9092 --value bingoohuang
+$ kafka-cli producer --brokers  192.168.217.14:9092 --value bingoohuang
 2021/03/01 18:08:45 Config:{"Brokers":"192.168.217.14:9092","Version":"0.10.0.0","Topic":"kafka-cli.topic","Value":"bingoohuang","Partition":-1}
 topic=kafka-cli.topic   partition=0     offset=13
-$ kafka-cli console-producer --brokers  192.168.217.14:9092 --value bingoohuangaaa
+$ kafka-cli producer --brokers  192.168.217.14:9092 --value bingoohuangaaa
 2021/03/01 18:08:49 Config:{"Brokers":"192.168.217.14:9092","Version":"0.10.0.0","Topic":"kafka-cli.topic","Value":"bingoohuangaaa","Partition":-1}
 topic=kafka-cli.topic   partition=0     offset=14
 ```
+
+## kafka golang repositories in github
+
+1. [search go kafka Repositories ](https://github.com/search?l=Go&p=1&q=kafka&type=Repositories)
+1. [Modern CLI for Apache Kafka](https://github.com/birdayz/kaf)
+1. [Kafka-Pixy (gRPC/REST Proxy for Kafka)](https://github.com/mailgun/kafka-pixy)
 
 ## kafka 版本
 

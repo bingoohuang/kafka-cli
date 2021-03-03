@@ -55,23 +55,15 @@ kafka-cli console-consumer -help`,
 
 	f := cmd.Flags()
 	c.KakfaConnect.InitFlags(f)
-	f.StringVar(&c.Topic, "topic", "kafka-cli.topic", "REQUIRED: the topic to consume")
-	f.StringVar(&c.Partitions, "partitions", "all", "The partitions to consume, can be 'all' or comma-separated numbers")
-	f.BoolVar(&c.Oldest, "oldest", true, "Kafka consumer consume initial offset from oldest")
-	f.IntVar(&c.BufferSize, "buffer-size", 256, "The buffer size of the message channel.")
+	f.StringVar(&c.Topic, "topic", "kafka-cli.topic", "Topic to consume")
+	f.StringVar(&c.Partitions, "partitions", "all", "Partitions to consume, can be 'all' or comma-separated numbers")
+	f.BoolVar(&c.Oldest, "oldest", true, "Consume initial offset from oldest")
+	f.IntVar(&c.BufferSize, "buffer-size", 256, "Buffer size of the message channel.")
 }
 
 func (r *ConsoleConsumerCmd) run() {
 	cmdJSON, _ := json.Marshal(r)
 	log.Printf("Config:%s", cmdJSON)
-
-	if r.Brokers == "" {
-		printUsageErrorAndExit("You have to provide -brokers as a comma-separated list, or set the KAFKA_PEERS environment variable.")
-	}
-
-	if r.Topic == "" {
-		printUsageErrorAndExit("-topic is required")
-	}
 
 	if r.Verbose {
 		sarama.Logger = log.Default()

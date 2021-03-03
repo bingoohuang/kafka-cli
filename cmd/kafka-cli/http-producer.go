@@ -39,8 +39,8 @@ an access log entry to Kafka as well in the background.`,
 
 	f := cmd.Flags()
 	c.KakfaConnect.InitFlags(f)
-	f.StringVar(&c.Addr, "addr", ":8080", "The address to bind to")
-	f.StringVar(&c.CaFile, "ca", "", "The optional certificate authority file for TLS client authentication")
+	f.StringVar(&c.Addr, "addr", ":8080", "Address to bind to")
+	f.StringVar(&c.CaFile, "ca", "", "Optional certificate authority file for TLS client authentication")
 }
 
 func (r *HttpProducerCmd) run() {
